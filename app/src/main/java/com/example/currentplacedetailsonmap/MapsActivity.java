@@ -3,12 +3,9 @@ package com.example.currentplacedetailsonmap;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.location.Address;
-import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
-
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -32,7 +29,6 @@ import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.firebase.geofire.GeoQuery;
 import com.firebase.geofire.GeoQueryEventListener;
-import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -48,14 +44,8 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
-
 import com.google.android.libraries.places.api.Places;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.api.model.RectangularBounds;
-import com.google.android.libraries.places.api.model.TypeFilter;
 import com.google.android.libraries.places.api.net.PlacesClient;
-import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
-import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -63,11 +53,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EventListener;
 import java.util.List;
 
 
@@ -105,11 +91,11 @@ public class MapsActivity extends AppCompatActivity
     private LatLng destinationLocation;
 
     private List<String> myList = new ArrayList<>();
-    private List<String> myList2 = new ArrayList<>();
-    private List<String> myList3 = new ArrayList<>();
-    private List<String> myList4 = new ArrayList<>();
-    private List<String> myList5 = new ArrayList<>();
-    private List<String> myList6 = new ArrayList<>();
+    private List<String> destinationStopBuses = new ArrayList<>();
+    private List<String> userClosestStationBuses = new ArrayList<>();
+    private List<String> allClosestStations = new ArrayList<>();
+    private List<String> queryResults = new ArrayList<>();
+    private List<String> commonBusResults = new ArrayList<>();
 
     // A default location (Sydney, Australia) and default zoom to use when location permission is
     // not granted.
@@ -149,9 +135,7 @@ public class MapsActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
 
 
-
         context = getApplicationContext();// za checkGps
-
 
 
         // Retrieve location and camera position from saved instance state.
@@ -175,11 +159,11 @@ public class MapsActivity extends AppCompatActivity
         //za update lokacije
 
 
-        mLocationRequest=new LocationRequest();
+        mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(3000);
         mLocationRequest.setFastestInterval(5000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationCallback= new LocationCallback(){
+        locationCallback = new LocationCallback() {
 
 
             @Override
@@ -187,23 +171,20 @@ public class MapsActivity extends AppCompatActivity
                 super.onLocationResult(locationResult);
 
                 //spremamo lokaciju
-                if(mLocationPermissionGranted){
-                Location location= locationResult.getLastLocation();
+                if (mLocationPermissionGranted) {
+                    Location location = locationResult.getLastLocation();
 
-                SaveUserDatabase(location);
+                    SaveUserDatabase(location);
 
 
                 }
 
 
-
-
             }
         };
 
-        mFusedLocationProviderClient.requestLocationUpdates(mLocationRequest, locationCallback, null );
-
-
+        mFusedLocationProviderClient.requestLocationUpdates(mLocationRequest, locationCallback,
+                null);
 
 
         // Build the map.
@@ -242,61 +223,24 @@ public class MapsActivity extends AppCompatActivity
             }
         });
 
-        myList= new ArrayList<>();
-        myList2= new ArrayList<>();
-        myList3= new ArrayList<>();
-        myList4= new ArrayList<>();
-        myList5= new ArrayList<>();
-        myList6= new ArrayList<>();
+        myList = new ArrayList<>();
+        destinationStopBuses = new ArrayList<>();
+        userClosestStationBuses = new ArrayList<>();
+        allClosestStations = new ArrayList<>();
+        queryResults = new ArrayList<>();
+        commonBusResults = new ArrayList<>();
 
-        //-----Autocomplete-------
-        AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
-                getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
-
-        // Specify the types of place data to return.
-        autocompleteFragment.setTypeFilter(TypeFilter.ESTABLISHMENT);
-
-
-
-        autocompleteFragment.setLocationBias(RectangularBounds.newInstance(
-
-                new LatLng(43.4434, 16.6929),
-                new LatLng(43.5423, 16.4920)));
-
-
-        autocompleteFragment.setCountry("HR");
-
-        autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME));
-        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
-            @Override
-            public void onPlaceSelected(@NonNull Place place) {
-                Log.i(TAG, "Place:" + place.getName() + "," + place.getId());
-
-                mSearchText= place.getName();
-
-
-
-                geoLocate();
-            }
-
-            @Override
-            public void onError(@NonNull Status status) {
-                Log.i(TAG, "An error occurred: " + status);
-
-            }
-        });
-
+        geoLocate();
 
     } //kraj OnCreate()
-
-
 
 
     public void openFragment() {
         BlankFragment fragment = BlankFragment.newInstance(null);
         FragmentManager fragmentManager = getSupportFragmentManager();
         FragmentTransaction transaction = fragmentManager.beginTransaction();
-        transaction.setCustomAnimations(R.anim.enter_to_up, R.anim.exit_to_down, R.anim.enter_to_up, R.anim.exit_to_down);
+        transaction.setCustomAnimations(R.anim.enter_to_up, R.anim.exit_to_down,
+                R.anim.enter_to_up, R.anim.exit_to_down);
         transaction.addToBackStack(null);
         transaction.add(R.id.fragment_container, fragment, "BLANK_FRAGMENT").commit();
     }
@@ -337,42 +281,17 @@ public class MapsActivity extends AppCompatActivity
     }
 
 
-
-   public void geoLocate() { //iz onCreate autofragment smo izvukli ime odabrane lokacije i sada trazimo koordinate i spremamo u database
-
-
-
-        Log.d(TAG, "geoLocate: geolocating");
-
-        Geocoder geocoder = new Geocoder(MapsActivity.this);
-        List<Address> list = new ArrayList<>();
-        try {
-            list = geocoder.getFromLocationName(mSearchText, 1);
-        } catch (IOException e) {
-            Log.e(TAG, "geoLocate: IOException: " + e.getMessage());
-        }
-
-        if (list.size() > 0) {
-            Address address = list.get(0);
+    public void geoLocate() { //iz onCreate autofragment smo izvukli ime odabrane lokacije i sada
+        // trazimo koordinate i spremamo u database
 
 
-            destinationLocation= new LatLng(address.getLatitude(),address.getLongitude());
-            FindClosestDestinationBusStop(destinationLocation);
+        destinationLocation = new LatLng(43.519997, 16.447067);
+        FindClosestDestinationBusStop(destinationLocation);
 
 
+//            mMap.clear();
 
-
-            Log.d(TAG, "geoLocate: found a location: " + address.toString());
-
-
-
-            mMap.clear();
-
-            moveCamera(new LatLng(address.getLatitude(), address.getLongitude()), DEFAULT_ZOOM,
-                    address.getAddressLine(0));
-
-
-        }
+        // moveCamera(new LatLng(43.519997, 16.447067), DEFAULT_ZOOM, "Jovina radionica");
 
 
     }
@@ -476,7 +395,8 @@ public class MapsActivity extends AppCompatActivity
     }
 
     private void moveCamera(LatLng latLng, float zoom, String title) {
-        Log.d(TAG, "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude);
+        Log.d(TAG,
+                "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
 
         mMap.clear();
@@ -534,7 +454,7 @@ public class MapsActivity extends AppCompatActivity
     }
 
 
-    private void SaveBusStopDatabase(){
+    private void SaveBusStopDatabase() {
 
         DatabaseReference stop = FirebaseDatabase.getInstance().getReference("BusStop");
         GeoFire geoFire = new GeoFire(stop);
@@ -543,14 +463,14 @@ public class MapsActivity extends AppCompatActivity
         myList.add("8");
         myList.add("9");
         myList.add("13");
-        geoFire.setLocation("1", new GeoLocation(43.514282,16.443449));
+        geoFire.setLocation("1", new GeoLocation(43.514282, 16.443449));
         stop.child("1").child("Buses").setValue(myList);
         myList.clear();
 
         myList.add("7");
         myList.add("9");
         myList.add("1");
-        geoFire.setLocation("2", new GeoLocation(43.511341,16.454626));
+        geoFire.setLocation("2", new GeoLocation(43.511341, 16.454626));
         stop.child("2").child("Buses").setValue(myList);
         myList.clear();
 
@@ -558,7 +478,7 @@ public class MapsActivity extends AppCompatActivity
         myList.add("5");
         myList.add("3");
         myList.add("11");
-        geoFire.setLocation("3", new GeoLocation(43.5105,16.480027));
+        geoFire.setLocation("3", new GeoLocation(43.5105, 16.480027));
         stop.child("3").child("Buses").setValue(myList);
         myList.clear();
 
@@ -566,7 +486,7 @@ public class MapsActivity extends AppCompatActivity
         myList.add("8");
         myList.add("16");
         myList.add("9");
-        geoFire.setLocation("4", new GeoLocation(43.505303,16.457243));
+        geoFire.setLocation("4", new GeoLocation(43.505303, 16.457243));
         stop.child("4").child("Buses").setValue(myList);
         myList.clear();
 
@@ -574,102 +494,98 @@ public class MapsActivity extends AppCompatActivity
         myList.add("7");
         myList.add("5");
         myList.add("27");
-        geoFire.setLocation("5", new GeoLocation(43.518971,16.476350));
+        geoFire.setLocation("5", new GeoLocation(43.518971, 16.476350));
         stop.child("4").child("Buses").setValue(myList);
         myList.clear();
 
 
-
-
-
-
-
     }
-    public List<String> getBusList(String key){
-        final List<String> myListy = new ArrayList<>();
 
-        DatabaseReference reference= FirebaseDatabase.getInstance().getReference("BusStop").child(key).child("Buses");
+    public List<String> getBusList(String key) {
+        final List<String> myListy = new ArrayList<String>();
+
+        DatabaseReference reference =
+                FirebaseDatabase.getInstance().getReference("BusStop").child(key).child("Buses");
         reference.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if(snapshot.exists()){
-                    myListy.clear();
 
-                    for (DataSnapshot dss: snapshot.getChildren()){
-                        String busList= dss.getValue(String.class);
-                        myListy.add(busList);
+                for (DataSnapshot dss : snapshot.getChildren()) {
+                    String busList = dss.getValue(String.class);
+                    myListy.add(busList);
+                }
 
-                    }
-
-                    for(int i = 0; i < myListy.size(); i++) {
-                        System.out.println(myListy.get(i));}
+                for (int i = 0; i < myListy.size(); i++) {
+                    System.out.println(myListy.get(i));
                 }
 
             }
+
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
 
             }
         });
 
+
         return myListy;
 
-
     }
+
     private LatLng userLatLng;
 
-    private void SaveUserDatabase(final Location location){
+    private void SaveUserDatabase(final Location location) {
 
         String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        DatabaseReference savedId = FirebaseDatabase.getInstance().getReference("Users").child(userId);
-       GeoFire geoFire = new GeoFire(savedId);
-       geoFire.setLocation("lokacija", new GeoLocation(location.getLatitude(), location.getLongitude()));
+        DatabaseReference savedId =
+                FirebaseDatabase.getInstance().getReference("Users").child(userId);
+        GeoFire geoFire = new GeoFire(savedId);
+        geoFire.setLocation("lokacija", new GeoLocation(location.getLatitude(),
+                location.getLongitude()));
 
 
         //uzimamo koordinate korisnika
-       geoFire.getLocation("lokacija", new com.firebase.geofire.LocationCallback() {
-           @Override
-           public void onLocationResult(String key, GeoLocation mlocation) {
-               if (mlocation != null) {
+        geoFire.getLocation("lokacija", new com.firebase.geofire.LocationCallback() {
+            @Override
+            public void onLocationResult(String key, GeoLocation mlocation) {
+                if (mlocation != null) {
 
                     userLatLng = new LatLng(mlocation.latitude, mlocation.longitude);
-                   System.out.println(String.format("The location for key %s is [%f,%f]", key, mlocation.latitude, mlocation.longitude));
+                    System.out.println(String.format("The location for key %s is [%f,%f]", key,
+                            mlocation.latitude, mlocation.longitude));
 
 
+                } else {
+                    System.out.println(String.format("There is no location for key %s in GeoFire"
+                            , key));
+                }
+            }
 
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
 
-               } else {
-                   System.out.println(String.format("There is no location for key %s in GeoFire", key));
-               }
-           }
-
-           @Override
-           public void onCancelled(DatabaseError databaseError) {
-
-           }
-       });
+            }
+        });
 
 
     }
+
     private double radius1 = 0.1;
     private double radius2 = 0.1;
-    private boolean stopFound=false;
+    private boolean stopFound = false;
     private String stopNumber;
-    private boolean stopUserFound=false;
+    private boolean stopUserFound = false;
     private String stopUserNumber;
 
 
-
-
-
-
     private void FindClosestDestinationBusStop(LatLng latLng) {
-        myList4.clear();
+        allClosestStations.clear();
 
         DatabaseReference find = FirebaseDatabase.getInstance().getReference().child("BusStop");
         GeoFire geoFire = new GeoFire(find);
 
-        GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(latLng.latitude, latLng.longitude), radius1);
+        GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(latLng.latitude,
+                latLng.longitude), radius1);
         geoQuery.removeAllListeners();
 
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
@@ -677,36 +593,32 @@ public class MapsActivity extends AppCompatActivity
             public void onKeyEntered(String key, GeoLocation location) {
 
 
-               myList4.add(key);
+                allClosestStations.add(key);
 
 
-                if (myList4.size()>1){ return;}
+                if (allClosestStations.size() > 1) {
+                    return;
+                } else {
+                    destinationStopBuses = getBusList(key);
+                    stopFound = true;
+                    stopNumber = allClosestStations.get(0);
 
 
-
-                    else {
-                    myList2= getBusList(key);
-                   stopFound = true;
-                   stopNumber = myList4.get(0);
+                    String title = "odredisna stanica je" + stopNumber;
 
 
-                   String title = "odredisna stanica je" + stopNumber;
+                    LatLng latLng1 = new LatLng(location.latitude, location.longitude);
+
+                    MarkerOptions options = new MarkerOptions()
+                            .position(latLng1)
+                            .title(title);
+                    mMap.addMarker(options);
 
 
-                   LatLng latLng1 = new LatLng(location.latitude, location.longitude);
+                    System.out.println(String.format("broj stanice je %s", stopNumber));
 
-                   MarkerOptions options = new MarkerOptions()
-                           .position(latLng1)
-                           .title(title);
-                   mMap.addMarker(options);
-
-
-                   System.out.println(String.format("broj stanice je %s", stopNumber));
-
-               }}
-
-
-
+                }
+            }
 
 
             @Override
@@ -727,7 +639,6 @@ public class MapsActivity extends AppCompatActivity
                     FindClosestDestinationBusStop(destinationLocation);
 
 
-
                 }
 
                 FindClosestUSERBusStop();
@@ -744,87 +655,98 @@ public class MapsActivity extends AppCompatActivity
     }
 
 
-
     private void FindClosestUSERBusStop() {
-        myList5.clear();
+        queryResults.clear();
 
         DatabaseReference find = FirebaseDatabase.getInstance().getReference().child("BusStop");
         GeoFire geoFire = new GeoFire(find);
         //latLng.latitude, latLng.longitude
 
         GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(43.515449, 16.457858), radius2);
-        geoQuery.removeAllListeners();
+   //     geoQuery.removeAllListeners();
 
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
             @Override
-            public void onKeyEntered(String key, GeoLocation location) {
-               myList5.add(key);
+            public void onKeyEntered(final String key, final GeoLocation location) {
+                queryResults.add(key);
 
-                if (myList5.size()>1){ return;}
+                if (queryResults.size() > 1) {
+                    return;
+                } else {
+                    DatabaseReference reference = FirebaseDatabase.getInstance().getReference("BusStop").child(key).child("Buses");
+                    reference.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot snapshot) {
 
-                else {
-                    myList3 = getBusList(key);
-                    for(int i = 0; i < myList3.size(); i++) {
-                        System.out.println(myList3.get(i));
-                    }
+                            for (DataSnapshot dss : snapshot.getChildren()) {
+                                String busList = dss.getValue(String.class);
+                                userClosestStationBuses.add(busList);
+                            }
 
-                    for(int i = 0; i < myList2.size(); i++) {
-                        System.out.println(myList2.get(i));
-                    }
+                            for (int i = 0; i < userClosestStationBuses.size(); i++) {
+                                System.out.println(userClosestStationBuses.get(i));
+                            }
+
+                            for (int i = 0; i < destinationStopBuses.size(); i++) {
+                                for (int j = 0; j < userClosestStationBuses.size(); j++) {
+
+                                    System.out.println(destinationStopBuses.get(i));
+                                    System.out.println(userClosestStationBuses.get(j));
+
+                                    if (userClosestStationBuses.get(j).equals(destinationStopBuses.get(i))) {
+                                        commonBusResults.add(userClosestStationBuses.get(j));
+                                    }
 
 
-                    for (int i = 0; i < myList2.size(); i++) {
-                        for (int j = 0; j < myList3.size(); j++) {
-
-                            System.out.println(myList2.get(i));
-                            System.out.println(myList3.get(j));
+                                }
 
 
+                            }
 
-                            if (myList3.get(j).equals(myList2.get(i))){
-                            myList6.add(myList3.get(j));
+                            System.out.println("myList6 elementi: ");
+
+                            for (int i = 0; i < commonBusResults.size(); i++) {
+                                System.out.println(commonBusResults.get(i));
+                            }
+
+
+                            if (commonBusResults.size() > 0) {
+                                stopUserFound = true;
+                                stopUserNumber = key;
+
+                                String title = "vama najbliža stanica je: " + stopUserNumber;
+
+
+                                LatLng latLng1 = new LatLng(location.latitude, location.longitude);
+
+                                MarkerOptions options = new MarkerOptions()
+                                        .position(latLng1)
+                                        .title(title);
+                                mMap.addMarker(options);
+
+
+                                System.out.println(String.format("broj stanice je %s",
+                                        stopUserNumber));
+                                commonBusResults.clear();
+
+                            } else {
+
+                                return;
                             }
 
 
                         }
 
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {
+
+                        }
+                    });
 
                     }
-                    System.out.println("myList6 elementi: ");
-
-                    for(int i = 0; i < myList6.size(); i++) {
-                        System.out.println(myList6.get(i));
-                    }
-
-
-                    if (myList6.size() > 0) {
-                        stopUserFound = true;
-                        stopUserNumber = key;
-
-                        String title = "vama najbliža stanica je: " + stopUserNumber;
-
-
-                        LatLng latLng1 = new LatLng(location.latitude, location.longitude);
-
-                        MarkerOptions options = new MarkerOptions()
-                                .position(latLng1)
-                                .title(title);
-                        mMap.addMarker(options);
-
-
-                        System.out.println(String.format("broj stanice je %s", stopUserNumber));
-                        myList6.clear();
-
-                    }
-                    else {
-
-                        return;}
-
-
-                }
-
 
             }
+
 
             @Override
             public void onKeyExited(String key) {
@@ -856,9 +778,6 @@ public class MapsActivity extends AppCompatActivity
 
 
     }
-
-
-
 
 
     /**
