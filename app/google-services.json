@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "554977746076",
+    "firebase_url": "https://aplikacija1-274111.firebaseio.com",
+    "project_id": "aplikacija1-274111",
+    "storage_bucket": "aplikacija1-274111.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:554977746076:android:9d410b772b95a648e6e159",
+        "android_client_info": {
+          "package_name": "com.example.currentplacedetailsonmap"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "554977746076-n6md2oaie1apv2s1o7i2dg541stupcg3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDo2V1k_n2nqoDF_RplDZ979WcvdfYgpLw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "554977746076-n6md2oaie1apv2s1o7i2dg541stupcg3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
