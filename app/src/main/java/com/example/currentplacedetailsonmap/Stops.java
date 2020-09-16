@@ -5,9 +5,9 @@ import com.google.android.gms.maps.model.LatLng;
 public class Stops {
 
 
-    String name;
-    LatLng stopLoc;
-    double mdistance;
+     String name;
+    private LatLng stopLoc;
+    private double mdistance;
 
     public Stops(String name) {
 
