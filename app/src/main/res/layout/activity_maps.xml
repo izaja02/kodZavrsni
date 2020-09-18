@@ -59,23 +59,6 @@
     </LinearLayout>
 
 
-    <Button
-            android:id="@+id/button"
-            android:layout_width="40dp"
-            android:layout_height="30dp"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentEnd="true"
-            android:layout_alignParentBottom="true"
-            android:layout_marginStart="300dp"
-            android:layout_marginTop="542dp"
-            android:layout_marginEnd="23dp"
-            android:layout_marginBottom="13dp"
-            android:stateListAnimator="@null"
-            android:text="otvori fragment" />
-
-
-
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"

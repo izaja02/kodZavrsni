@@ -1,5 +1,6 @@
 package com.example.currentplacedetailsonmap;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -9,9 +10,11 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 
+import android.os.RemoteException;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -78,10 +81,15 @@ import com.google.firebase.database.ValueEventListener;
 import org.altbeacon.beacon.BeaconConsumer;
 import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
+import org.altbeacon.beacon.Identifier;
+import org.altbeacon.beacon.MonitorNotifier;
+import org.altbeacon.beacon.Region;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Formatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 
@@ -91,7 +99,7 @@ import java.util.UUID;
  * An activity that displays a map showing the place at the device's current location.
  */
 public class MapsActivity extends AppCompatActivity
-        implements OnMapReadyCallback, BlankFragment.OnFragmentInteractionListener {
+        implements OnMapReadyCallback, BlankFragment.OnFragmentInteractionListener, BeaconConsumer, MonitorNotifier, LocationListener {
 
 
     //fragment
@@ -159,6 +167,9 @@ public class MapsActivity extends AppCompatActivity
     FirebaseAuth mFirebaseAuth;
     private FirebaseAuth.AuthStateListener mAuthStateListener;
 
+    private BeaconManager beaconManager;
+    private  String uuidNum="b9407f30-f5f8-466e-aff9-25556b57fe6d";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -166,6 +177,11 @@ public class MapsActivity extends AppCompatActivity
 
 
         context = getApplicationContext();// za checkGps
+
+
+        beaconManager = BeaconManager.getInstanceForApplication(this);
+        beaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
+        beaconManager.bind((BeaconConsumer) this);
 
 
         // Retrieve location and camera position from saved instance state.
@@ -226,16 +242,16 @@ public class MapsActivity extends AppCompatActivity
 
 
         //----BlankFragment-----
-        fragmentContainer = (FrameLayout) findViewById(R.id.fragment_container);
+      //  fragmentContainer = (FrameLayout) findViewById(R.id.fragment_container);
 
-        button = (Button) findViewById(R.id.button);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+      //  button = (Button) findViewById(R.id.button);
+     //   button.setOnClickListener(new View.OnClickListener() {
+     //       @Override
+     //       public void onClick(View v) {
 
-                openFragment();
-            }
-        });
+     //           openFragment();
+           // }
+      //  });
 
 
         CheckGpsStatus();
@@ -295,7 +311,13 @@ public class MapsActivity extends AppCompatActivity
         });
 
 
-    } //kraj OnCreate()
+    this.updateSpeed(null);
+
+
+
+
+
+} //kraj OnCreate()
 
 
     public void openFragment() {
@@ -347,7 +369,7 @@ public class MapsActivity extends AppCompatActivity
     public void geoLocate() { //iz onCreate autofragment smo izvukli ime odabrane lokacije i sada
         Log.d(TAG, "geoLocate: geolocating");
         mMap.clear();
-
+        //stopScanningBeacon();
 
 
         Geocoder geocoder = new Geocoder(MapsActivity.this);
@@ -369,14 +391,10 @@ public class MapsActivity extends AppCompatActivity
                     address.getAddressLine(0));
 
 
-
-
             Log.d(TAG, "geoLocate: found a location: " + address.toString());
 
 
-
-
-          //  moveCamera(new LatLng(address.getLatitude(), address.getLongitude()), DEFAULT_ZOOM,
+            //  moveCamera(new LatLng(address.getLatitude(), address.getLongitude()), DEFAULT_ZOOM,
             //        address.getAddressLine(0));
 
 
@@ -536,6 +554,7 @@ public class MapsActivity extends AppCompatActivity
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     mLocationPermissionGranted = true;
+                    doStuff();
                 }
             }
         }
@@ -610,7 +629,7 @@ public class MapsActivity extends AppCompatActivity
                         myListy.add(busList);
                     }
 
-            }
+                }
             }
 
             @Override
@@ -675,10 +694,10 @@ public class MapsActivity extends AppCompatActivity
 
         destinationStopBuses.clear();
 
-       DatabaseReference find = FirebaseDatabase.getInstance().getReference().child("BusStop");
-       GeoFire geoFire = new GeoFire(find);
+        DatabaseReference find = FirebaseDatabase.getInstance().getReference().child("BusStop");
+        GeoFire geoFire = new GeoFire(find);
 
-       GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(latLng.latitude,
+        GeoQuery geoQuery = geoFire.queryAtLocation(new GeoLocation(latLng.latitude,
                 latLng.longitude), radius1);
         geoQuery.removeAllListeners();
 
@@ -690,8 +709,7 @@ public class MapsActivity extends AppCompatActivity
                 Log.i(TAG, "<<<<<<<<<<<<<<<<<<Usli smo u onKeyEntered, FindClosestDestinationBusStop");
 
 
-
-                   // destinationStopBuses = getBusList(key);
+                // destinationStopBuses = getBusList(key);
 
 
                 DatabaseReference reference =
@@ -741,8 +759,6 @@ public class MapsActivity extends AppCompatActivity
                 System.out.println(String.format("broj stanice je %s", stopNumber));
 
 
-
-
             }
 
 
@@ -764,17 +780,17 @@ public class MapsActivity extends AppCompatActivity
                     FindClosestDestinationBusStop(destinationLocation);
 
 
-                }
-                else {
-                    stopFound=false;
+                } else {
 
-                    radius1=0.1;
+                   // startToScanBeacon();
+                    stopFound = false;
+
+                    radius1 = 0.1;
                     Log.i(TAG, "<<<<<<<<<<<<<<<<<<Usli smo u GeoQueryReady, FindClosestDestinationBusStop");
                     FindClosestUSERBusStop();
 
 
                 }
-
 
 
             }
@@ -784,7 +800,6 @@ public class MapsActivity extends AppCompatActivity
 
             }
         });
-
 
 
     }
@@ -797,7 +812,7 @@ public class MapsActivity extends AppCompatActivity
 
         DatabaseReference find1 = FirebaseDatabase.getInstance().getReference().child("BusStop");
         GeoFire geoFire = new GeoFire(find1);
-       ;
+        ;
 
 
         GeoQuery geoQuery1 = geoFire.queryAtLocation(new GeoLocation(43.518547, 16.457858), radius2);
@@ -810,12 +825,9 @@ public class MapsActivity extends AppCompatActivity
                 Log.i(TAG, "<<<<<<<<<<<<<<<<<<Usli smo u onKeyEntered, FindUSERBusStop");
 
 
-
-
-
-             final DatabaseReference reference1 =
+                final DatabaseReference reference1 =
                         FirebaseDatabase.getInstance().getReference("BusStop").child(key).child("Buses");
-           // reference1.removeEventListener(this);
+                // reference1.removeEventListener(this);
                 reference1.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -828,12 +840,12 @@ public class MapsActivity extends AppCompatActivity
                             for (DataSnapshot dss : snapshot.getChildren()) {
                                 String busList = dss.getValue(String.class);
                                 Log.i(TAG, "<<<<<<<<<<<<<<<<<<Usli smo u DATASNAPSHOT, FindUSERBusStop");
-                               userClosestStationBuses.add(busList);
+                                userClosestStationBuses.add(busList);
 
 
                             }
-                            isFinished=true;
-                            if(isFinished=true){
+                            isFinished = true;
+                            if (isFinished = true) {
                                 reference1.removeEventListener(this);
                             }
 
@@ -845,53 +857,47 @@ public class MapsActivity extends AppCompatActivity
 
                     }
                 });
-                    for (int i = 0; i < destinationStopBuses.size(); i++) {
-                        for (int j = 0; j < userClosestStationBuses.size(); j++) {
+                for (int i = 0; i < destinationStopBuses.size(); i++) {
+                    for (int j = 0; j < userClosestStationBuses.size(); j++) {
 
-                            Log.i(TAG, "<<<<<<<<<<<<<<<<<<TESTIRAMO, FindUSERBusStop");
-
-
+                        Log.i(TAG, "<<<<<<<<<<<<<<<<<<TESTIRAMO, FindUSERBusStop");
 
 
-
-                            if (userClosestStationBuses.get(j).equals(destinationStopBuses.get(i))) {
-                                commonBusResults.add(userClosestStationBuses.get(j));
-                            }
-
-
+                        if (userClosestStationBuses.get(j).equals(destinationStopBuses.get(i))) {
+                            commonBusResults.add(userClosestStationBuses.get(j));
                         }
 
 
                     }
-                    if (commonBusResults.size() > 0) {
-                        stopUserFound = true;
-                        stopUserNumber = key;
-
-                        String title = "vama najbliža stanica je: " + stopUserNumber;
 
 
-                        LatLng latLng1 = new LatLng(location.latitude, location.longitude);
+                }
+                if (commonBusResults.size() > 0) {
+                    stopUserFound = true;
+                    stopUserNumber = key;
 
-                        MarkerOptions options = new MarkerOptions()
-                                .position(latLng1)
-                                .title(title);
-                        mMap.addMarker(options);
-
-
-                        System.out.println(String.format("broj stanice je %s",
-                                stopUserNumber));
-                        commonBusResults.clear();
+                    String title = "vama najbliža stanica je: " + stopUserNumber;
 
 
-                    }
-                    else if(commonBusResults.size()==0){
-                        Log.i(TAG, "<<<<<<<<<<<<<<<<<<OVA STANICA NEMA ZAJEDNIČKIH BUSEVA, FindUSERBusStop");
-                    }
+                    LatLng latLng1 = new LatLng(location.latitude, location.longitude);
+
+                    MarkerOptions options = new MarkerOptions()
+                            .position(latLng1)
+                            .title(title);
+                    mMap.addMarker(options);
 
 
-                        }
+                    System.out.println(String.format("broj stanice je %s",
+                            stopUserNumber));
+                    commonBusResults.clear();
 
 
+                } else if (commonBusResults.size() == 0) {
+                    Log.i(TAG, "<<<<<<<<<<<<<<<<<<OVA STANICA NEMA ZAJEDNIČKIH BUSEVA, FindUSERBusStop");
+                }
+
+
+            }
 
 
             @Override
@@ -911,16 +917,18 @@ public class MapsActivity extends AppCompatActivity
                     Log.i(TAG, "<<<<<<<<<<<<<<<<<<Usli smo uGeoQueryReady ALI MORAMO OPET, FindUSERBusStop");
 
                     radius2 = radius2 + 0.01;
-                    FindClosestUSERBusStop();}
-                else {
-                    stopUserFound=false;
-                    radius2=0.01;
+                    FindClosestUSERBusStop();
+                } else {
+
+
+                    stopUserFound = false;
+                    radius2 = 0.01;
                     Log.i(TAG, "<<<<<<<<<<<<<<<<<<Usli smo uGeoQueryReady, FindUSERBusStop");
 
-            }
-
-
                 }
+
+
+            }
 
 
             @Override
@@ -930,115 +938,16 @@ public class MapsActivity extends AppCompatActivity
         });
 
 
-
-
     }
 
 
-    /**
-     * Prompts the user to select the current place from a list of likely places, and shows the
-     * current place on the map - provided the user has granted location permission.
-     */
-   /* private void showCurrentPlace() {
-        if (mMap == null) {
-            return;
-        }
-        if (mLocationPermissionGranted) {
-            // Use fields to define the data types to return.
-            List<Place.Field> placeFields = Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS,
-                    Place.Field.LAT_LNG);
-            // Use the builder to create a FindCurrentPlaceRequest.
-            FindCurrentPlaceRequest request =
-                    FindCurrentPlaceRequest.newInstance(placeFields);
-            // Get the likely places - that is, the businesses and other points of interest that
-            // are the best match for the device's current location.
-            @SuppressWarnings("MissingPermission") final
-            Task<FindCurrentPlaceResponse> placeResult =
-                    mPlacesClient.findCurrentPlace(request);
-            placeResult.addOnCompleteListener (new OnCompleteListener<FindCurrentPlaceResponse>() {
-                @Override
-                public void onComplete(@NonNull Task<FindCurrentPlaceResponse> task) {
-                    if (task.isSuccessful() && task.getResult() != null) {
-                        FindCurrentPlaceResponse likelyPlaces = task.getResult();
-                        // Set the count, handling cases where less than 5 entries are returned.
-                        int count;
-                        if (likelyPlaces.getPlaceLikelihoods().size() < M_MAX_ENTRIES) {
-                            count = likelyPlaces.getPlaceLikelihoods().size();
-                        } else {
-                            count = M_MAX_ENTRIES;
-                        }
-                        int i = 0;
-                        mLikelyPlaceNames = new String[count];
-                        mLikelyPlaceAddresses = new String[count];
-                        mLikelyPlaceAttributions = new List[count];
-                        mLikelyPlaceLatLngs = new LatLng[count];
-                        for (PlaceLikelihood placeLikelihood : likelyPlaces.getPlaceLikelihoods()) {
-                            // Build a list of likely places to show the user.
-                            mLikelyPlaceNames[i] = placeLikelihood.getPlace().getName();
-                            mLikelyPlaceAddresses[i] = placeLikelihood.getPlace().getAddress();
-                            mLikelyPlaceAttributions[i] = placeLikelihood.getPlace()
-                                    .getAttributions();
-                            mLikelyPlaceLatLngs[i] = placeLikelihood.getPlace().getLatLng();
-                            i++;
-                            if (i > (count - 1)) {
-                                break;
-                            }
-                        }
-                        // Show a dialog offering the user the list of likely places, and add a
-                        // marker at the selected place.
-                        MapsActivityCurrentPlace.this.openPlacesDialog();
-                    }
-                    else {
-                        Log.e(TAG, "Exception: %s", task.getException());
-                    }
-                }
-            });
-        } else {
-            // The user has not granted permission.
-            Log.i(TAG, "The user did not grant location permission.");
-            // Add a default marker, because the user hasn't selected a place.
-            mMap.addMarker(new MarkerOptions()
-                    .title(getString(R.string.default_info_title))
-                    .position(mDefaultLocation)
-                    .snippet(getString(R.string.default_info_snippet)));
-            // Prompt the user for permission.
-            getLocationPermission();
-        }
-    }
-    /**
-     * Displays a form allowing the user to select a place from a list of likely places.
-     */
-   /* private void openPlacesDialog() {
-        // Ask the user to choose the place where they are now.
-        DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                // The "which" argument contains the position of the selected item.
-                LatLng markerLatLng = mLikelyPlaceLatLngs[which];
-                String markerSnippet = mLikelyPlaceAddresses[which];
-                if (mLikelyPlaceAttributions[which] != null) {
-                    markerSnippet = markerSnippet + "\n" + mLikelyPlaceAttributions[which];
-                }
-                // Add a marker for the selected place, with an info window
-                // showing information about that place.
-                mMap.addMarker(new MarkerOptions()
-                        .title(mLikelyPlaceNames[which])
-                        .position(markerLatLng)
-                        .snippet(markerSnippet));
-                // Position the map's camera at the location of the marker.
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(markerLatLng,
-                        DEFAULT_ZOOM));
-            }
-        };
-        // Display the dialog.
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(R.string.pick_place)
-                .setItems(mLikelyPlaceNames, listener)
-                .show();
-    }
-    /**
-     * Updates the map's UI settings based on whether the user has granted location permission.
-     */
+
+
+
+
+
+
+
     private void updateLocationUI() {
         if (mMap == null) {
             return;
@@ -1062,9 +971,189 @@ public class MapsActivity extends AppCompatActivity
     private void hideSoftKeyboard() {
         this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
     }
+
+
+
+
+    private void stopScanningBeacon() {
+
+            deregisterBeaconToBeMonitored(UuidProvider.beaconBusStopToBeMonitored());
+            BeaconManager.getInstanceForApplication(this).removeMonitorNotifier(this);
+            BeaconManager.getInstanceForApplication(this).unbind(this);
+
+    }
+
+    private void startToScanBeacon() {
+        BeaconManager beaconManager = BeaconManager.getInstanceForApplication(this);
+        beaconManager.addMonitorNotifier(this);
+        beaconManager.bind(this);
+
+    }
+
+
+    @Override
+    public void onBeaconServiceConnect() {
+
+        Log.i(TAG, "<<<<<<<<<<<<<<<<<<SCAN IS READY");
+
+        scanBusStopBeacon();
+
+    }
+
+    private void scanBusStopBeacon() {
+        registerBeaconToBeMonitored(UuidProvider.beaconBusStopToBeMonitored());
+    }
+    private void scanBusesBeacon() {
+        registerBeaconToBeMonitored(UuidProvider.beaconBusesToBeMonitored());
+    }
+    //private String stop_uuidNum= "b9407f30-f5f8-466e-aff9-25556b57fe6d:1:"+stopNumber;
+    //private String bus_uuidNum= "b9407f30-f5f8-466e-aff9-25556b57fe6d:2:"+destinationStopBuses.get(0);
+
+
+    @Override
+    public void didEnterRegion(Region region) {
+
+        String stop_uuidNum= "b9407f30-f5f8-466e-aff9-25556b57fe6d:1:"+stopUserNumber;
+       String bus_uuidNum= "b9407f30-f5f8-466e-aff9-25556b57fe6d:2:"+destinationStopBuses.get(0);
+
+
+       if(region.getUniqueId().equals("b9407f30-f5f8-466e-aff9-25556b57fe6d:1:"+stopUserNumber)){
+           Toast.makeText(MapsActivity.this,"Blizu ste polazišne stanice stanice: "+ region.getId3().toString()+"Molimo vas, pratite autobuse", Toast.LENGTH_LONG).show();
+           deregisterBeaconToBeMonitored(UuidProvider.beaconBusStopToBeMonitored());
+           scanBusesBeacon();
+       }
+       for(int i=0; i<commonBusResults.size(); i++){
+       if (region.getUniqueId().equals("b9407f30-f5f8-466e-aff9-25556b57fe6d:2:"+commonBusResults.get(i))){
+
+           Toast.makeText(MapsActivity.this,"U blizini je autobus koji vodi ka odredištu: "+ region.getId3().toString(), Toast.LENGTH_LONG).show();
+           if (nCurrentSpeed>=30){
+               deregisterBeaconToBeMonitored(UuidProvider.beaconBusesToBeMonitored());
+               registerBeaconToBeMonitored(UuidProvider.beaconBusesToBeMonitored());
+               scanBusStopBeacon();
+               Toast.makeText(MapsActivity.this,"Prolazite pored stanice broj "+ region.getId3().toString(), Toast.LENGTH_LONG).show();
+               if(region.getUniqueId().equals("b9407f30-f5f8-466e-aff9-25556b57fe6d:1:"+stopNumber)){
+                   Toast.makeText(MapsActivity.this,"u blizini ste odredišne stanice! Pripremite se za izlazak." , Toast.LENGTH_LONG).show();
+                   mMap.clear();
+                   return;
+
+
+
+
+               }
+
+           }
+
+
+    }}}
+
+    @Override
+    public void didExitRegion(Region region) {
+        Toast.makeText(MapsActivity.this,"IZAŠLI STE IZ REGIJE"+ region.getUniqueId(), Toast.LENGTH_LONG).show();
+
+    }
+
+    @Override
+    public void didDetermineStateForRegion(int state, Region region) {
+
+    }
+
+
+
+
+
+    private void registerBeaconToBeMonitored(List<String> beacons) {
+        try {
+            BeaconManager beaconManager = BeaconManager.getInstanceForApplication(this);
+            for (String beacon : beacons) {
+
+
+                Toast.makeText(MapsActivity.this,"PRATIMO BEACON "+  beacon, Toast.LENGTH_LONG).show();
+
+                beaconManager.startMonitoringBeaconsInRegion(UuidMapper.constructRegion(beacon));}
+
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private void deregisterBeaconToBeMonitored(List<String> beacons) {
+        try {
+            BeaconManager beaconManager = BeaconManager.getInstanceForApplication(this);
+            for (String beacon : beacons) {
+
+                Toast.makeText(MapsActivity.this,"PRESTALI SMO PRATITI BEACON"+  beacon, Toast.LENGTH_LONG).show();
+
+                beaconManager.stopMonitoringBeaconsInRegion(UuidMapper.constructRegion(beacon));
+            }
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+@SuppressLint("MissingPermission")
+private void doStuff() {
+
+
+    LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+    if (locationManager != null) {
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
+    }
+
+}
+   private float nCurrentSpeed=0;
+private void updateSpeed(CLocation location){
+
+       // float nCurrentSpeed=0;
+        if(location!=null){
+
+            location.setUseMetricUnits(this.useMetricUnits());
+            nCurrentSpeed=location.getSpeed();
+
+            Formatter fmt= new Formatter(new StringBuilder());
+            fmt.format(Locale.US, "%S.lf", nCurrentSpeed);
+            String strCurrentSpeed=fmt.toString();
+            strCurrentSpeed=strCurrentSpeed.replace(" ","0") + "km/h";
+
+            Toast.makeText(MapsActivity.this,"************************* BRZINA JE:"+ strCurrentSpeed, Toast.LENGTH_LONG).show();
+
+           // Log.i(TAG, "************************* BRZINA JE:"+ strCurrentSpeed);
+
+
+        }
+
+
+
+}
+private boolean useMetricUnits(){
+
+        return true;
 }
 
+    @Override
+    public void onLocationChanged(Location location) {
+        if(location!=null){
 
+            CLocation myLocation= new CLocation(location, this.useMetricUnits());
+            this.updateSpeed(myLocation);
+        }
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+
+    }
+}
 //-------------------------------------------------------------------------------------------------------------------
 
 
